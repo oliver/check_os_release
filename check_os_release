@@ -1,0 +1,77 @@
+#!/usr/bin/env python
+
+#
+# Nagios plugin to check if current operating system version is outdated.
+#
+
+from datetime import datetime, date, timedelta
+import subprocess
+import urllib2
+import csv
+from StringIO import StringIO
+
+
+debianDistroDataUrl = "https://anonscm.debian.org/git/collab-maint/distro-info-data.git/plain/debian.csv"
+ubuntuDistroDataUrl = "https://anonscm.debian.org/git/collab-maint/distro-info-data.git/plain/ubuntu.csv"
+
+
+def addWarning(msg):
+    print "Warning: " + msg
+
+def addCritical(msg):
+    print "Critical: " + msg
+
+def parseCsvDate(string):
+    return datetime.strptime(string, "%Y-%m-%d").date()
+
+def checkDebianUbuntu(distroDataUrl):
+    """
+    Check currently installed Debian (or Ubuntu) release against online data from from distro-info-data package.
+    """
+    # options are for Ubuntu only:
+    checkForLTS = True
+    checkForServer = True
+
+    csvText = urllib2.urlopen(distroDataUrl).read()
+
+    currentCodename = subprocess.check_output(["lsb_release", "--codename", "--short"]).rstrip("\n")
+    currentReleaseData = None
+
+    csvFp = StringIO(csvText)
+    csvReader = csv.DictReader(csvFp)
+
+    for row in csvReader:
+        if row["series"] == currentCodename:
+            currentReleaseData = row
+            break
+    else:
+        raise Exception("current release '%s' not found in release list" % currentCodename)
+    #print "currentReleaseData: %s" % currentReleaseData
+
+    # check if there is a newer release available (by continuing to read from CSV buffer):
+    for row in csvReader:
+        if checkForLTS and not(row["version"].endswith(" LTS")):
+            continue
+        addWarning("newer release '%s' is available" % row["version"])
+
+    # check if current release is EOL
+    nowDate = date.today()
+    if checkForServer and currentReleaseData.has_key("eol-server") and currentReleaseData["eol-server"] is not None:
+        eolDate = parseCsvDate(currentReleaseData["eol-server"])
+    else:
+        eolDate = parseCsvDate(currentReleaseData["eol"])
+    if eolDate:
+        if nowDate > eolDate:
+            addCritical("release is EOL for %d days" % (nowDate - eolDate).days)
+        elif nowDate > eolDate - timedelta(days=30):
+            addWarning("release will be EOL in %d days" % (eolDate - nowDate).days)
+
+
+if __name__ == "__main__":
+        distro = subprocess.check_output(["lsb_release", "--id", "--short"]).rstrip("\n")
+        if distro == "Debian":
+            checkDebianUbuntu(debianDistroDataUrl)
+        elif distro == "Ubuntu":
+            checkDebianUbuntu(ubuntuDistroDataUrl)
+        else:
+            raise Exception("unknown distribution '%s'" % distro)
