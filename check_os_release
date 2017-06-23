@@ -39,20 +39,21 @@ def checkDebianUbuntu(nagiosOutput, distroDataUrl):
     else:
         raise Exception("current release '%s' not found in release list" % currentCodename)
 
+    def parseCsvDate(string):
+        return datetime.strptime(string, "%Y-%m-%d").date()
+    nowDate = date.today()
+
     # check if there is a newer release available (by continuing to read from CSV buffer):
     newestUpgrade = None
     for row in csvReader:
         if checkForLTS and not(row["version"].endswith(" LTS")):
             continue
-        newestUpgrade = row["version"]
+        if row["release"] is not None and parseCsvDate(row["release"]) <= nowDate:
+            newestUpgrade = row["version"]
     if newestUpgrade is not None:
         nagiosOutput.addResult(NagiosOutput.LEVEL_WARN, "newer release '%s' is available" % newestUpgrade)
 
     # check if current release is EOL
-    def parseCsvDate(string):
-        return datetime.strptime(string, "%Y-%m-%d").date()
-
-    nowDate = date.today()
     if checkForServer and currentReleaseData.has_key("eol-server") and currentReleaseData["eol-server"] is not None:
         eolDate = parseCsvDate(currentReleaseData["eol-server"])
     else:
