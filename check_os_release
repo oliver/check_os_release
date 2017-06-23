@@ -49,10 +49,13 @@ def checkDebianUbuntu(distroDataUrl):
     #print "currentReleaseData: %s" % currentReleaseData
 
     # check if there is a newer release available (by continuing to read from CSV buffer):
+    newestUpgrade = None
     for row in csvReader:
         if checkForLTS and not(row["version"].endswith(" LTS")):
             continue
-        addWarning("newer release '%s' is available" % row["version"])
+        newestUpgrade = row["version"]
+    if newestUpgrade is not None:
+        addWarning("newer release '%s' is available" % newestUpgrade)
 
     # check if current release is EOL
     nowDate = date.today()
