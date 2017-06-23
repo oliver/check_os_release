@@ -5,6 +5,7 @@
 #
 
 import sys
+import argparse
 from datetime import datetime, date, timedelta
 import subprocess
 import urllib2
@@ -16,14 +17,10 @@ debianDistroDataUrl = "https://anonscm.debian.org/git/collab-maint/distro-info-d
 ubuntuDistroDataUrl = "https://anonscm.debian.org/git/collab-maint/distro-info-data.git/plain/ubuntu.csv"
 
 
-def checkDebianUbuntu(nagiosOutput, distroDataUrl):
+def checkDebianUbuntu(nagiosOutput, distroDataUrl, eolWarnDays, checkForLTS=False, checkForServer=False):
     """
     Check currently installed Debian (or Ubuntu) release against online data from from distro-info-data package.
     """
-    # options are for Ubuntu only:
-    checkForLTS = True
-    checkForServer = True
-
     csvText = urllib2.urlopen(distroDataUrl).read()
 
     currentCodename = subprocess.check_output(["lsb_release", "--codename", "--short"]).rstrip("\n")
@@ -61,7 +58,7 @@ def checkDebianUbuntu(nagiosOutput, distroDataUrl):
     if eolDate:
         if nowDate > eolDate:
             nagiosOutput.addResult(NagiosOutput.LEVEL_CRITICAL, "release is EOL for %d days" % (nowDate - eolDate).days)
-        elif nowDate > eolDate - timedelta(days=30):
+        elif nowDate > eolDate - timedelta(days=eolWarnDays):
             nagiosOutput.addResult(NagiosOutput.LEVEL_WARN, "release will be EOL in %d days" % (eolDate - nowDate).days)
 
 
@@ -100,13 +97,19 @@ class NagiosOutput:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Check whether OS release is outdated.")
+    parser.add_argument("--eolWarnDays", type=int, metavar="DAYS", default=30, help="warn if less than DAYS until end-of-life")
+    parser.add_argument("--lts", action="store_true", help="[Ubuntu] check only for LTS releases")
+    parser.add_argument("--server", action="store_true", help="[Ubuntu] check for server EOL dates")
+    args = parser.parse_args()
+
     nagiosOutput = NagiosOutput("OSRELEASE")
     try:
         distro = subprocess.check_output(["lsb_release", "--id", "--short"]).rstrip("\n")
         if distro == "Debian":
-            checkDebianUbuntu(nagiosOutput, debianDistroDataUrl)
+            checkDebianUbuntu(nagiosOutput, debianDistroDataUrl, args.eolWarnDays)
         elif distro == "Ubuntu":
-            checkDebianUbuntu(nagiosOutput, ubuntuDistroDataUrl)
+            checkDebianUbuntu(nagiosOutput, ubuntuDistroDataUrl, args.eolWarnDays, args.lts, args.server)
         else:
             raise Exception("unknown distribution '%s'" % distro)
         nagiosOutput.reportAndExit()
