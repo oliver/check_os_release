@@ -4,6 +4,7 @@
 # Nagios plugin to check if current operating system version is outdated.
 #
 
+import sys
 from datetime import datetime, date, timedelta
 import subprocess
 import urllib2
@@ -15,16 +16,7 @@ debianDistroDataUrl = "https://anonscm.debian.org/git/collab-maint/distro-info-d
 ubuntuDistroDataUrl = "https://anonscm.debian.org/git/collab-maint/distro-info-data.git/plain/ubuntu.csv"
 
 
-def addWarning(msg):
-    print "Warning: " + msg
-
-def addCritical(msg):
-    print "Critical: " + msg
-
-def parseCsvDate(string):
-    return datetime.strptime(string, "%Y-%m-%d").date()
-
-def checkDebianUbuntu(distroDataUrl):
+def checkDebianUbuntu(nagiosOutput, distroDataUrl):
     """
     Check currently installed Debian (or Ubuntu) release against online data from from distro-info-data package.
     """
@@ -46,7 +38,6 @@ def checkDebianUbuntu(distroDataUrl):
             break
     else:
         raise Exception("current release '%s' not found in release list" % currentCodename)
-    #print "currentReleaseData: %s" % currentReleaseData
 
     # check if there is a newer release available (by continuing to read from CSV buffer):
     newestUpgrade = None
@@ -55,9 +46,12 @@ def checkDebianUbuntu(distroDataUrl):
             continue
         newestUpgrade = row["version"]
     if newestUpgrade is not None:
-        addWarning("newer release '%s' is available" % newestUpgrade)
+        nagiosOutput.addResult(NagiosOutput.LEVEL_WARN, "newer release '%s' is available" % newestUpgrade)
 
     # check if current release is EOL
+    def parseCsvDate(string):
+        return datetime.strptime(string, "%Y-%m-%d").date()
+
     nowDate = date.today()
     if checkForServer and currentReleaseData.has_key("eol-server") and currentReleaseData["eol-server"] is not None:
         eolDate = parseCsvDate(currentReleaseData["eol-server"])
@@ -65,16 +59,55 @@ def checkDebianUbuntu(distroDataUrl):
         eolDate = parseCsvDate(currentReleaseData["eol"])
     if eolDate:
         if nowDate > eolDate:
-            addCritical("release is EOL for %d days" % (nowDate - eolDate).days)
+            nagiosOutput.addResult(NagiosOutput.LEVEL_CRITICAL, "release is EOL for %d days" % (nowDate - eolDate).days)
         elif nowDate > eolDate - timedelta(days=30):
-            addWarning("release will be EOL in %d days" % (eolDate - nowDate).days)
+            nagiosOutput.addResult(NagiosOutput.LEVEL_WARN, "release will be EOL in %d days" % (eolDate - nowDate).days)
+
+
+class NagiosOutput:
+    "Class for collecting results and aggregating them into a single status output."
+    LEVEL_OK = 0
+    LEVEL_WARN = 1
+    LEVEL_CRITICAL = 2
+
+    def __init__(self, name):
+        self.name = name
+        self.level = self.LEVEL_OK
+        self.messages = []
+
+    def abort(self, msg):
+        print "%s ERROR (%s)" % (self.name, msg)
+        sys.exit(3)
+
+    def addResult(self, level, msg):
+        if level not in (self.LEVEL_OK, self.LEVEL_WARN, self.LEVEL_CRITICAL):
+            self.abort("invalid error level '%s'" % level)
+        self.level = max(self.level, level)
+        self.messages.append(msg)
+
+    def reportAndExit(self):
+        result = self.name + " "
+        if self.level == self.LEVEL_OK:
+            result += "OK"
+        elif self.level == self.LEVEL_WARN:
+            result += "WARNING"
+        else:
+            result += "CRITICAL"
+        result += " - " + ("; ".join(self.messages))
+        print result
+        sys.exit(self.level)
 
 
 if __name__ == "__main__":
+    nagiosOutput = NagiosOutput("OSRELEASE")
+    try:
         distro = subprocess.check_output(["lsb_release", "--id", "--short"]).rstrip("\n")
         if distro == "Debian":
-            checkDebianUbuntu(debianDistroDataUrl)
+            checkDebianUbuntu(nagiosOutput, debianDistroDataUrl)
         elif distro == "Ubuntu":
-            checkDebianUbuntu(ubuntuDistroDataUrl)
+            checkDebianUbuntu(nagiosOutput, ubuntuDistroDataUrl)
         else:
             raise Exception("unknown distribution '%s'" % distro)
+        nagiosOutput.reportAndExit()
+    except Exception, e:
+        nagiosOutput.abort(e)
