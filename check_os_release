@@ -46,9 +46,9 @@ def checkDebianUbuntu(nagiosOutput, distroDataUrl, eolWarnDays, checkForLTS=Fals
         if checkForLTS and not(row["version"].endswith(" LTS")):
             continue
         if row["release"] is not None and parseCsvDate(row["release"]) <= nowDate:
-            newestUpgrade = row["version"]
+            newestUpgrade = row
     if newestUpgrade is not None:
-        nagiosOutput.addResult(NagiosOutput.LEVEL_WARN, "newer release '%s' is available" % newestUpgrade)
+        nagiosOutput.addResult(NagiosOutput.LEVEL_WARN, "newer release '%s' (%s) is available" % (newestUpgrade["series"], newestUpgrade["version"]))
 
     # check if current release is EOL
     if checkForServer and currentReleaseData.has_key("eol-server") and currentReleaseData["eol-server"] is not None:
@@ -57,9 +57,9 @@ def checkDebianUbuntu(nagiosOutput, distroDataUrl, eolWarnDays, checkForLTS=Fals
         eolDate = parseCsvDate(currentReleaseData["eol"])
     if eolDate:
         if nowDate > eolDate:
-            nagiosOutput.addResult(NagiosOutput.LEVEL_CRITICAL, "release is EOL for %d days" % (nowDate - eolDate).days)
+            nagiosOutput.addResult(NagiosOutput.LEVEL_CRITICAL, "release '%s' has been EOL for %d days" % (currentCodename, (nowDate - eolDate).days))
         elif nowDate > eolDate - timedelta(days=eolWarnDays):
-            nagiosOutput.addResult(NagiosOutput.LEVEL_WARN, "release will be EOL in %d days" % (eolDate - nowDate).days)
+            nagiosOutput.addResult(NagiosOutput.LEVEL_WARN, "release '%s' will be EOL in %d days" % (currentCodename, (eolDate - nowDate).days))
 
 
 class NagiosOutput:
