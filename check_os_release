@@ -17,7 +17,8 @@ debianDistroDataUrl = "https://anonscm.debian.org/git/collab-maint/distro-info-d
 ubuntuDistroDataUrl = "https://anonscm.debian.org/git/collab-maint/distro-info-data.git/plain/ubuntu.csv"
 
 
-def checkDebianUbuntu(nagiosOutput, distroDataUrl, eolWarningDays, eolCriticalDays, checkForLTS=False, checkForServer=False):
+def checkDebianUbuntu(nagiosOutput, distroDataUrl, eolWarningDays, eolCriticalDays,
+    releaseWarningDays, releaseCriticalDays, checkForLTS=False, checkForServer=False):
     """
     Check currently installed Debian (or Ubuntu) release against online data from from distro-info-data package.
     """
@@ -41,14 +42,21 @@ def checkDebianUbuntu(nagiosOutput, distroDataUrl, eolWarningDays, eolCriticalDa
     nowDate = date.today()
 
     # check if there is a newer release available (by continuing to read from CSV buffer):
-    newestUpgrade = None
+    newestWarningUpgrade = None
+    newestCriticalUpgrade = None
     for row in csvReader:
         if checkForLTS and not(row["version"].endswith(" LTS")):
             continue
-        if row["release"] is not None and parseCsvDate(row["release"]) <= nowDate:
-            newestUpgrade = row
-    if newestUpgrade is not None:
-        nagiosOutput.addResult(NagiosOutput.LEVEL_WARN, "newer release '%s' (%s) is available" % (newestUpgrade["series"], newestUpgrade["version"]))
+        if row["release"] is not None:
+            releaseDate = parseCsvDate(row["release"])
+            if nowDate >= releaseDate + timedelta(days=releaseWarningDays):
+                newestWarningUpgrade = row
+            if nowDate >= releaseDate + timedelta(days=releaseCriticalDays):
+                newestCriticalUpgrade = row
+    if newestCriticalUpgrade is not None:
+        nagiosOutput.addResult(NagiosOutput.LEVEL_CRITICAL, "newer release '%s' (%s) is available" % (newestCriticalUpgrade["series"], newestCriticalUpgrade["version"]))
+    elif newestWarningUpgrade is not None:
+        nagiosOutput.addResult(NagiosOutput.LEVEL_WARN,     "newer release '%s' (%s) is available" % (newestWarningUpgrade["series"], newestWarningUpgrade["version"]))
 
     # check if current release is EOL
     if checkForServer and currentReleaseData.has_key("eol-server") and currentReleaseData["eol-server"] is not None:
@@ -104,6 +112,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Check whether OS release is outdated.")
     parser.add_argument("--eolWarningDays", type=int, metavar="DAYS", default=30, help="set WARNING status if less than DAYS until end-of-life")
     parser.add_argument("--eolCriticalDays", type=int, metavar="DAYS", default=7, help="set CRITICAL status if less than DAYS until end-of-life")
+    parser.add_argument("--releaseWarningDays", type=int, metavar="DAYS", default=0, help="set WARNING status if new release available for more than DAYS")
+    parser.add_argument("--releaseCriticalDays", type=int, metavar="DAYS", default=30, help="set CRITICAL status if new release available for more than DAYS")
     parser.add_argument("--lts", action="store_true", help="[Ubuntu] check only for LTS releases")
     parser.add_argument("--server", action="store_true", help="[Ubuntu] check for server EOL dates")
     args = parser.parse_args()
@@ -112,9 +122,9 @@ if __name__ == "__main__":
     try:
         distro = subprocess.check_output(["lsb_release", "--id", "--short"]).rstrip("\n")
         if distro == "Debian":
-            checkDebianUbuntu(nagiosOutput, debianDistroDataUrl, args.eolWarningDays, args.eolCriticalDays)
+            checkDebianUbuntu(nagiosOutput, debianDistroDataUrl, args.eolWarningDays, args.eolCriticalDays, args.releaseWarningDays, args.releaseCriticalDays)
         elif distro == "Ubuntu":
-            checkDebianUbuntu(nagiosOutput, ubuntuDistroDataUrl, args.eolWarningDays, args.eolCriticalDays, args.lts, args.server)
+            checkDebianUbuntu(nagiosOutput, ubuntuDistroDataUrl, args.eolWarningDays, args.eolCriticalDays, args.releaseWarningDays, args.releaseCriticalDays, args.lts, args.server)
         else:
             raise Exception("unknown distribution '%s'" % distro)
         nagiosOutput.reportAndExit()
