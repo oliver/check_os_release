@@ -44,6 +44,7 @@ def checkDebianUbuntu(nagiosOutput, distroDataUrl, eolWarningDays, eolCriticalDa
     # check if there is a newer release available (by continuing to read from CSV buffer):
     newestWarningUpgrade = None
     newestCriticalUpgrade = None
+    newestAnyUpgrade = None
     for row in csvReader:
         if checkForLTS and not(row["version"].endswith(" LTS")):
             continue
@@ -53,10 +54,14 @@ def checkDebianUbuntu(nagiosOutput, distroDataUrl, eolWarningDays, eolCriticalDa
                 newestWarningUpgrade = row
             if nowDate >= releaseDate + timedelta(days=releaseCriticalDays):
                 newestCriticalUpgrade = row
+            if nowDate >= releaseDate:
+                newestAnyUpgrade = row
     if newestCriticalUpgrade is not None:
         nagiosOutput.addResult(NagiosOutput.LEVEL_CRITICAL, "newer release '%s' (%s) is available" % (newestCriticalUpgrade["series"], newestCriticalUpgrade["version"]))
     elif newestWarningUpgrade is not None:
         nagiosOutput.addResult(NagiosOutput.LEVEL_WARN,     "newer release '%s' (%s) is available" % (newestWarningUpgrade["series"], newestWarningUpgrade["version"]))
+    elif newestAnyUpgrade is not None:
+        nagiosOutput.addResult(NagiosOutput.LEVEL_OK,       "newer release '%s' (%s) is available" % (newestAnyUpgrade["series"], newestAnyUpgrade["version"]))
 
     # check if current release is EOL
     if checkForServer and currentReleaseData.has_key("eol-server") and currentReleaseData["eol-server"] is not None:
@@ -72,6 +77,8 @@ def checkDebianUbuntu(nagiosOutput, distroDataUrl, eolWarningDays, eolCriticalDa
             nagiosOutput.addResult(NagiosOutput.LEVEL_CRITICAL, msg)
         elif nowDate > eolDate - timedelta(days=eolWarningDays):
             nagiosOutput.addResult(NagiosOutput.LEVEL_WARN, msg)
+        else:
+            nagiosOutput.addResult(NagiosOutput.LEVEL_OK, msg)
 
 
 class NagiosOutput:
