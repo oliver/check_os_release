@@ -26,8 +26,9 @@ def checkDebianUbuntu(nagiosOutput, distroDataUrl, eolWarningDays, eolCriticalDa
     try:
         csvText = urllib2.urlopen(distroDataUrl).read()
     except urllib2.URLError, e:
-        nagiosOutput.addResult(NagiosOutput.LEVEL_UNKNOWN, "error downloading \"%s\": %s" % (distroDataUrl, e))
-        return
+        extype, ex, tb = sys.exc_info()
+        msg = traceback.format_exception_only(extype, ex)[-1].rstrip()
+        raise RuntimeError, "error downloading \"%s\": %s" % (distroDataUrl, msg), tb
 
     currentCodename = subprocess.check_output(["lsb_release", "--codename", "--short"]).rstrip("\n")
     currentReleaseData = None
@@ -91,7 +92,6 @@ class NagiosOutput:
     LEVEL_OK = 0
     LEVEL_WARN = 1
     LEVEL_CRITICAL = 2
-    LEVEL_UNKNOWN = 3
 
     def __init__(self, name, verbose):
         self.name = name
@@ -108,7 +108,7 @@ class NagiosOutput:
         sys.exit(3)
 
     def addResult(self, level, msg):
-        if level not in (self.LEVEL_OK, self.LEVEL_WARN, self.LEVEL_CRITICAL, self.LEVEL_UNKNOWN):
+        if level not in (self.LEVEL_OK, self.LEVEL_WARN, self.LEVEL_CRITICAL):
             raise Exception("invalid error level '%s'" % level)
         self.level = max(self.level, level)
         self.messages.append(msg)
@@ -122,7 +122,7 @@ class NagiosOutput:
         elif self.level == self.LEVEL_CRITICAL:
             result += "CRITICAL"
         else:
-            result += "UNKNOWN"
+            raise Exception("invalid error level '%s'" % level)
         result += " - " + ("; ".join(self.messages))
         print result
         sys.exit(self.level)
