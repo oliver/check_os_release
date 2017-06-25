@@ -11,6 +11,7 @@ import subprocess
 import urllib2
 import csv
 from StringIO import StringIO
+import traceback
 
 
 debianDistroDataUrl = "https://anonscm.debian.org/git/collab-maint/distro-info-data.git/plain/debian.csv"
@@ -117,6 +118,7 @@ class NagiosOutput:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Check whether OS release is outdated.")
+    parser.add_argument("-v", "--verbose", action="store_true", help="increase output verbosity")
     parser.add_argument("--eolWarningDays", type=int, metavar="DAYS", default=30, help="set WARNING status if less than DAYS until end-of-life")
     parser.add_argument("--eolCriticalDays", type=int, metavar="DAYS", default=7, help="set CRITICAL status if less than DAYS until end-of-life")
     parser.add_argument("--releaseWarningDays", type=int, metavar="DAYS", default=0, help="set WARNING status if new release available for more than DAYS")
@@ -136,4 +138,6 @@ if __name__ == "__main__":
             raise Exception("unknown distribution '%s'" % distro)
         nagiosOutput.reportAndExit()
     except Exception, e:
+        if args.verbose:
+            sys.stderr.write(traceback.format_exc() + "\n")
         nagiosOutput.abort(e)
