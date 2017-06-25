@@ -104,7 +104,7 @@ class NagiosOutput:
 
     def addResult(self, level, msg):
         if level not in (self.LEVEL_OK, self.LEVEL_WARN, self.LEVEL_CRITICAL, self.LEVEL_UNKNOWN):
-            self.abort("invalid error level '%s'" % level)
+            raise Exception("invalid error level '%s'" % level)
         self.level = max(self.level, level)
         self.messages.append(msg)
 
