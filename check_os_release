@@ -99,7 +99,7 @@ class NagiosOutput:
         self.messages = []
 
     def abort(self, msg):
-        print "%s ERROR (%s)" % (self.name, msg)
+        print "%s UNKNOWN (%s)" % (self.name, msg)
         sys.exit(3)
 
     def addResult(self, level, msg):
