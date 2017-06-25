@@ -6,15 +6,15 @@ Currently only Debian and Ubuntu are supported.
 
 ## Usage ##
 ```
-check_os_release -h
-usage: check_os_release [-h] [--eolWarningDays DAYS] [--eolCriticalDays DAYS]
-                        [--releaseWarningDays DAYS]
+usage: check_os_release [-h] [-v] [--eolWarningDays DAYS]
+                        [--eolCriticalDays DAYS] [--releaseWarningDays DAYS]
                         [--releaseCriticalDays DAYS] [--lts] [--server]
 
 Check whether OS release is outdated.
 
 optional arguments:
   -h, --help            show this help message and exit
+  -v, --verbose         increase output verbosity
   --eolWarningDays DAYS
                         set WARNING status if less than DAYS until end-of-life
   --eolCriticalDays DAYS
