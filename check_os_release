@@ -93,13 +93,18 @@ class NagiosOutput:
     LEVEL_CRITICAL = 2
     LEVEL_UNKNOWN = 3
 
-    def __init__(self, name):
+    def __init__(self, name, verbose):
         self.name = name
+        self.verbose = verbose
         self.level = self.LEVEL_OK
         self.messages = []
+        sys.excepthook = self.handleException
 
-    def abort(self, msg):
-        print "%s UNKNOWN (%s)" % (self.name, msg)
+    def handleException(self, exc_type, exc_value, exc_traceback):
+        """Handler for any uncaught exception."""
+        if self.verbose:
+            traceback.print_tb(exc_traceback)
+        print "%s UNKNOWN (%s: %s)" % (self.name, exc_type, exc_value)
         sys.exit(3)
 
     def addResult(self, level, msg):
@@ -134,17 +139,12 @@ if __name__ == "__main__":
     parser.add_argument("--server", action="store_true", help="[Ubuntu] check for server EOL dates")
     args = parser.parse_args()
 
-    nagiosOutput = NagiosOutput("OSRELEASE")
-    try:
-        distro = subprocess.check_output(["lsb_release", "--id", "--short"]).rstrip("\n")
-        if distro == "Debian":
-            checkDebianUbuntu(nagiosOutput, debianDistroDataUrl, args.eolWarningDays, args.eolCriticalDays, args.releaseWarningDays, args.releaseCriticalDays)
-        elif distro == "Ubuntu":
-            checkDebianUbuntu(nagiosOutput, ubuntuDistroDataUrl, args.eolWarningDays, args.eolCriticalDays, args.releaseWarningDays, args.releaseCriticalDays, args.lts, args.server)
-        else:
-            raise Exception("unknown distribution '%s'" % distro)
-        nagiosOutput.reportAndExit()
-    except Exception, e:
-        if args.verbose:
-            sys.stderr.write(traceback.format_exc() + "\n")
-        nagiosOutput.abort(e)
+    nagiosOutput = NagiosOutput("OSRELEASE", args.verbose)
+    distro = subprocess.check_output(["lsb_release", "--id", "--short"]).rstrip("\n")
+    if distro == "Debian":
+        checkDebianUbuntu(nagiosOutput, debianDistroDataUrl, args.eolWarningDays, args.eolCriticalDays, args.releaseWarningDays, args.releaseCriticalDays)
+    elif distro == "Ubuntu":
+        checkDebianUbuntu(nagiosOutput, ubuntuDistroDataUrl, args.eolWarningDays, args.eolCriticalDays, args.releaseWarningDays, args.releaseCriticalDays, args.lts, args.server)
+    else:
+        raise Exception("unknown distribution '%s'" % distro)
+    nagiosOutput.reportAndExit()
