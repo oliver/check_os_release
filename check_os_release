@@ -23,7 +23,11 @@ def checkDebianUbuntu(nagiosOutput, distroDataUrl, eolWarningDays, eolCriticalDa
     """
     Check currently installed Debian (or Ubuntu) release against online data from from distro-info-data package.
     """
-    csvText = urllib2.urlopen(distroDataUrl).read()
+    try:
+        csvText = urllib2.urlopen(distroDataUrl).read()
+    except urllib2.URLError, e:
+        nagiosOutput.addResult(NagiosOutput.LEVEL_UNKNOWN, "error downloading \"%s\": %s" % (distroDataUrl, e))
+        return
 
     currentCodename = subprocess.check_output(["lsb_release", "--codename", "--short"]).rstrip("\n")
     currentReleaseData = None
@@ -87,6 +91,7 @@ class NagiosOutput:
     LEVEL_OK = 0
     LEVEL_WARN = 1
     LEVEL_CRITICAL = 2
+    LEVEL_UNKNOWN = 3
 
     def __init__(self, name):
         self.name = name
@@ -98,7 +103,7 @@ class NagiosOutput:
         sys.exit(3)
 
     def addResult(self, level, msg):
-        if level not in (self.LEVEL_OK, self.LEVEL_WARN, self.LEVEL_CRITICAL):
+        if level not in (self.LEVEL_OK, self.LEVEL_WARN, self.LEVEL_CRITICAL, self.LEVEL_UNKNOWN):
             self.abort("invalid error level '%s'" % level)
         self.level = max(self.level, level)
         self.messages.append(msg)
@@ -109,8 +114,10 @@ class NagiosOutput:
             result += "OK"
         elif self.level == self.LEVEL_WARN:
             result += "WARNING"
-        else:
+        elif self.level == self.LEVEL_CRITICAL:
             result += "CRITICAL"
+        else:
+            result += "UNKNOWN"
         result += " - " + ("; ".join(self.messages))
         print result
         sys.exit(self.level)
