@@ -72,8 +72,10 @@ def checkDebianUbuntu(nagiosOutput, distroDataUrl, eolWarningDays, eolCriticalDa
     # check if current release is EOL
     if checkForServer and currentReleaseData.has_key("eol-server") and currentReleaseData["eol-server"] is not None:
         eolDate = parseCsvDate(currentReleaseData["eol-server"])
-    else:
+    elif currentReleaseData["eol"] is not None:
         eolDate = parseCsvDate(currentReleaseData["eol"])
+    else:
+        eolDate = None
     if eolDate:
         if nowDate > eolDate:
             msg = "release '%s' has been EOL for %d days" % (currentCodename, (nowDate - eolDate).days)
