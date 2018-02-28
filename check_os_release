@@ -14,8 +14,8 @@ from StringIO import StringIO
 import traceback
 
 
-debianDistroDataUrl = "https://anonscm.debian.org/git/collab-maint/distro-info-data.git/plain/debian.csv"
-ubuntuDistroDataUrl = "https://anonscm.debian.org/git/collab-maint/distro-info-data.git/plain/ubuntu.csv"
+debianDistroDataUrl = "https://salsa.debian.org/debian/distro-info-data/raw/master/debian.csv"
+ubuntuDistroDataUrl = "https://salsa.debian.org/debian/distro-info-data/raw/master/ubuntu.csv"
 
 
 def checkDebianUbuntu(nagiosOutput, distroDataUrl, eolWarningDays, eolCriticalDays,
