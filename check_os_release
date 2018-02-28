@@ -68,6 +68,8 @@ def checkDebianUbuntu(nagiosOutput, distroDataUrl, eolWarningDays, eolCriticalDa
         nagiosOutput.addResult(NagiosOutput.LEVEL_WARN,     "newer release '%s' (%s) is available" % (newestWarningUpgrade["series"], newestWarningUpgrade["version"]))
     elif newestAnyUpgrade is not None:
         nagiosOutput.addResult(NagiosOutput.LEVEL_OK,       "newer release '%s' (%s) is available" % (newestAnyUpgrade["series"], newestAnyUpgrade["version"]))
+    else:
+        nagiosOutput.addResult(NagiosOutput.LEVEL_OK,       "release '%s' (%s) is most current" % (currentReleaseData["series"], currentReleaseData["version"]))
 
     # check if current release is EOL
     if checkForServer and currentReleaseData.has_key("eol-server") and currentReleaseData["eol-server"] is not None:
