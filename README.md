@@ -17,15 +17,16 @@ optional arguments:
   -v, --verbose         increase output verbosity
   --eolWarningDays DAYS
                         set WARNING status if less than DAYS until end-of-life
+                        (default: 30)
   --eolCriticalDays DAYS
                         set CRITICAL status if less than DAYS until end-of-
-                        life
+                        life (default: 7)
   --releaseWarningDays DAYS
                         set WARNING status if new release available for more
-                        than DAYS
+                        than DAYS (default: 0)
   --releaseCriticalDays DAYS
                         set CRITICAL status if new release available for more
-                        than DAYS
+                        than DAYS (default: 30)
   --lts                 [Ubuntu] check only for LTS releases
   --server              [Ubuntu] check for server EOL dates
 ```
