@@ -48,26 +48,19 @@ def checkDebianUbuntu(nagiosOutput, distroDataUrl, eolWarningDays, eolCriticalDa
     nowDate = date.today()
 
     # check if there is a newer release available (by continuing to read from CSV buffer):
-    newestWarningUpgrade = None
-    newestCriticalUpgrade = None
     newestAnyUpgrade = None
     for row in csvReader:
         if checkForLTS and not(row["version"].endswith(" LTS")):
             continue
         if row["release"] is not None:
             releaseDate = parseCsvDate(row["release"])
-            if nowDate >= releaseDate + timedelta(days=releaseWarningDays):
-                newestWarningUpgrade = row
-            if nowDate >= releaseDate + timedelta(days=releaseCriticalDays):
-                newestCriticalUpgrade = row
             if nowDate >= releaseDate:
                 newestAnyUpgrade = row
-    if newestCriticalUpgrade is not None:
-        nagiosOutput.addResult(NagiosOutput.LEVEL_CRITICAL, "newer release '%s' (%s) is available" % (newestCriticalUpgrade["series"], newestCriticalUpgrade["version"]))
-    elif newestWarningUpgrade is not None:
-        nagiosOutput.addResult(NagiosOutput.LEVEL_WARN,     "newer release '%s' (%s) is available" % (newestWarningUpgrade["series"], newestWarningUpgrade["version"]))
-    elif newestAnyUpgrade is not None:
-        nagiosOutput.addResult(NagiosOutput.LEVEL_OK,       "newer release '%s' (%s) is available" % (newestAnyUpgrade["series"], newestAnyUpgrade["version"]))
+
+    if newestAnyUpgrade is not None:
+        nagiosOutput.addResult("newer release '%s' (%s) is available" % (newestAnyUpgrade["series"], newestAnyUpgrade["version"]))
+        nagiosOutput.addPerfData("release", (nowDate - parseCsvDate(newestAnyUpgrade["release"])).total_seconds(), "s",
+                                 releaseWarningDays * 86400.0, releaseCriticalDays * 86400.0, 0.0)
 
     # check if current release is EOL
     if checkForServer and currentReleaseData.has_key("eol-server") and currentReleaseData["eol-server"] is not None:
@@ -81,12 +74,14 @@ def checkDebianUbuntu(nagiosOutput, distroDataUrl, eolWarningDays, eolCriticalDa
             msg = "release '%s' has been EOL for %d days" % (currentCodename, (nowDate - eolDate).days)
         else:
             msg = "release '%s' will be EOL in %d days" % (currentCodename, (eolDate - nowDate).days)
-        if nowDate > eolDate - timedelta(days=eolCriticalDays):
-            nagiosOutput.addResult(NagiosOutput.LEVEL_CRITICAL, msg)
-        elif nowDate > eolDate - timedelta(days=eolWarningDays):
-            nagiosOutput.addResult(NagiosOutput.LEVEL_WARN, msg)
-        else:
-            nagiosOutput.addResult(NagiosOutput.LEVEL_OK, msg)
+
+        nagiosOutput.addResult(msg)
+        nagiosOutput.addPerfData("eol", (nowDate - eolDate).total_seconds(), "s",
+                                 eolWarningDays * -86400.0, eolCriticalDays * -86400.0)
+
+
+def coalesce(a, b):
+    return b if a is None else a
 
 
 class NagiosOutput:
@@ -100,6 +95,7 @@ class NagiosOutput:
         self.verbose = verbose
         self.level = self.LEVEL_OK
         self.messages = []
+        self.perfdata = []
         sys.excepthook = self.handleException
 
     def handleException(self, exc_type, exc_value, exc_traceback):
@@ -109,11 +105,19 @@ class NagiosOutput:
         print "%s UNKNOWN (%s: %s)" % (self.name, exc_type, exc_value)
         sys.exit(3)
 
-    def addResult(self, level, msg):
-        if level not in (self.LEVEL_OK, self.LEVEL_WARN, self.LEVEL_CRITICAL):
-            raise ValueError("invalid error level '%s'" % level)
-        self.level = max(self.level, level)
+    def addResult(self, msg):
         self.messages.append(msg)
+
+    def addPerfData(self, label, value, uom="", warn=None, crit=None, min=None, maks=None):
+        if crit is not None and value > crit:
+            level = self.LEVEL_CRITICAL
+        else:
+            level = self.LEVEL_WARN if warn is not None and value > warn else self.LEVEL_OK
+
+        self.level = max(self.level, level)
+        self.perfdata.append(("'%s'=%s%s;%s;%s;%s;%s" % (
+            label, value, uom, coalesce(warn, ""), coalesce(crit, ""), coalesce(min, ""), coalesce(maks, "")
+        )).rstrip(";"))
 
     def reportAndExit(self):
         result = self.name + " "
@@ -126,6 +130,10 @@ class NagiosOutput:
         else:
             raise ValueError("invalid error level '%s'" % level)
         result += " - " + ("; ".join(self.messages))
+
+        if self.perfdata:
+            result += " |" + " ".join(self.perfdata)
+
         print result
         sys.exit(self.level)
 
