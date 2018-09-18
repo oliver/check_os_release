@@ -143,7 +143,7 @@ if __name__ == "__main__":
 
     nagiosOutput = NagiosOutput("OSRELEASE", args.verbose)
     distro = subprocess.check_output(["lsb_release", "--id", "--short"]).rstrip("\n")
-    if distro == "Debian":
+    if distro in ("Debian", "Raspbian"):
         checkDebianUbuntu(nagiosOutput, debianDistroDataUrl, args.eolWarningDays, args.eolCriticalDays, args.releaseWarningDays, args.releaseCriticalDays)
     elif distro == "Ubuntu":
         checkDebianUbuntu(nagiosOutput, ubuntuDistroDataUrl, args.eolWarningDays, args.eolCriticalDays, args.releaseWarningDays, args.releaseCriticalDays, args.lts, args.server)
