@@ -5,6 +5,7 @@
 #
 
 import sys
+import os
 import argparse
 from datetime import datetime, date, timedelta
 import subprocess
@@ -85,17 +86,65 @@ def checkDebianUbuntu(nagiosOutput, downloader, distroDataUrl, eolWarningDays, e
 
 
 class Downloader:
-    "Class for downloading files from a URL."
+    """
+    Class for downloading files from a URL.
+    Contents will be cached (if cache directory and expiration time are specified).
+    """
+
+    def __init__ (self, cacheDir, cacheExpirationDays):
+        self.cacheDir = cacheDir
+        if self.cacheDir:
+            if not(os.path.isdir(self.cacheDir)):
+                raise ValueError("cache directory \"%s\" does not exist" % self.cacheDir)
+
+            if cacheExpirationDays < 0:
+                raise ValueError("invalid cache expiration value (%s days)" % cacheExpirationDays)
+            self.cacheExpiration = timedelta(days=cacheExpirationDays)
+
+    def _buildCachePath (self, url):
+        return self.cacheDir + "/cache_" + urllib2.quote(url, safe="")
+
+    def _getCachedTimestamp (self, path):
+        return datetime.fromtimestamp(os.stat(path).st_mtime)
+
+    def _tryToGetFromCache (self, url):
+        cachePath = None
+        cachedPayload = None
+
+        if self.cacheDir:
+            cachePath = self._buildCachePath(url)
+            if os.path.isfile(cachePath):
+                expirationTimestamp = self._getCachedTimestamp(cachePath) + self.cacheExpiration
+                if expirationTimestamp < datetime.now():
+                    os.unlink(cachePath)
+                else:
+                    with open(cachePath) as fp:
+                        cachedPayload = fp.read()
+
+        return (cachePath, cachedPayload)
+
     def get (self, url):
+        "Returns the content of the file at the specified url."
+
+        (cachePath, cachedPayload) = self._tryToGetFromCache(url)
+        if cachedPayload is not None:
+            return cachedPayload
+
         try:
             request = urllib2.Request(url)
             request.add_header("User-Agent", "check_os_release/1.0")
             response = urllib2.urlopen(request)
-            return response.read()
+            payload = response.read()
         except urllib2.URLError, e:
             extype, ex, tb = sys.exc_info()
             msg = traceback.format_exception_only(extype, ex)[-1].rstrip()
             raise RuntimeError, "error downloading \"%s\": %s" % (url, msg), tb
+
+        if cachePath:
+            with open(cachePath, "w") as fp:
+                fp.write(payload)
+
+        return payload
 
 
 class NagiosOutput:
@@ -150,10 +199,12 @@ if __name__ == "__main__":
     parser.add_argument("--releaseIgnore", action="store_true", help="ignore any new release")
     parser.add_argument("--lts", action="store_true", help="[Ubuntu] check only for LTS releases")
     parser.add_argument("--server", action="store_true", help="[Ubuntu] check for server EOL dates")
+    parser.add_argument("--cacheDir", type=str, help="optional directory where data files should be cached (default: no caching)")
+    parser.add_argument("--cacheExpiration", type=int, metavar="DAYS", default=7, help="for how many days should data files be cached (default: 7)")
     args = parser.parse_args()
 
     nagiosOutput = NagiosOutput("OSRELEASE", args.verbose)
-    downloader = Downloader()
+    downloader = Downloader(args.cacheDir, args.cacheExpiration)
     distro = subprocess.check_output(["lsb_release", "--id", "--short"]).rstrip("\n")
     if distro == "Debian":
         checkDebianUbuntu(nagiosOutput, downloader, debianDistroDataUrl, args.eolWarningDays, args.eolCriticalDays, args.eolIgnore, args.releaseWarningDays, args.releaseCriticalDays, args.releaseIgnore)
