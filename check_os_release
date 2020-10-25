@@ -88,7 +88,10 @@ class Downloader:
     "Class for downloading files from a URL."
     def get (self, url):
         try:
-            return urllib2.urlopen(url).read()
+            request = urllib2.Request(url)
+            request.add_header("User-Agent", "check_os_release/1.0")
+            response = urllib2.urlopen(request)
+            return response.read()
         except urllib2.URLError, e:
             extype, ex, tb = sys.exc_info()
             msg = traceback.format_exception_only(extype, ex)[-1].rstrip()
