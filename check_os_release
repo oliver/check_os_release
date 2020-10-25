@@ -18,22 +18,15 @@ debianDistroDataUrl = "https://salsa.debian.org/debian/distro-info-data/-/raw/ma
 ubuntuDistroDataUrl = "https://salsa.debian.org/debian/distro-info-data/-/raw/master/ubuntu.csv"
 
 
-def checkDebianUbuntu(nagiosOutput, distroDataUrl, eolWarningDays, eolCriticalDays, eolIgnore,
+def checkDebianUbuntu(nagiosOutput, downloader, distroDataUrl, eolWarningDays, eolCriticalDays, eolIgnore,
     releaseWarningDays, releaseCriticalDays, releaseIgnore, checkForLTS=False, checkForServer=False):
     """
     Check currently installed Debian (or Ubuntu) release against online data from from distro-info-data package.
     """
-    try:
-        csvText = urllib2.urlopen(distroDataUrl).read()
-    except urllib2.URLError, e:
-        extype, ex, tb = sys.exc_info()
-        msg = traceback.format_exception_only(extype, ex)[-1].rstrip()
-        raise RuntimeError, "error downloading \"%s\": %s" % (distroDataUrl, msg), tb
-
     currentCodename = subprocess.check_output(["lsb_release", "--codename", "--short"]).rstrip("\n")
     currentReleaseData = None
 
-    csvFp = StringIO(csvText)
+    csvFp = StringIO(downloader.get(distroDataUrl))
     csvReader = csv.DictReader(csvFp)
 
     for row in csvReader:
@@ -91,6 +84,17 @@ def checkDebianUbuntu(nagiosOutput, distroDataUrl, eolWarningDays, eolCriticalDa
             nagiosOutput.addResult(NagiosOutput.LEVEL_OK, msg)
 
 
+class Downloader:
+    "Class for downloading files from a URL."
+    def get (self, url):
+        try:
+            return urllib2.urlopen(url).read()
+        except urllib2.URLError, e:
+            extype, ex, tb = sys.exc_info()
+            msg = traceback.format_exception_only(extype, ex)[-1].rstrip()
+            raise RuntimeError, "error downloading \"%s\": %s" % (url, msg), tb
+
+
 class NagiosOutput:
     "Class for collecting results and aggregating them into a single status output."
     LEVEL_OK = 0
@@ -146,11 +150,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     nagiosOutput = NagiosOutput("OSRELEASE", args.verbose)
+    downloader = Downloader()
     distro = subprocess.check_output(["lsb_release", "--id", "--short"]).rstrip("\n")
     if distro == "Debian":
-        checkDebianUbuntu(nagiosOutput, debianDistroDataUrl, args.eolWarningDays, args.eolCriticalDays, args.eolIgnore, args.releaseWarningDays, args.releaseCriticalDays, args.releaseIgnore)
+        checkDebianUbuntu(nagiosOutput, downloader, debianDistroDataUrl, args.eolWarningDays, args.eolCriticalDays, args.eolIgnore, args.releaseWarningDays, args.releaseCriticalDays, args.releaseIgnore)
     elif distro == "Ubuntu":
-        checkDebianUbuntu(nagiosOutput, ubuntuDistroDataUrl, args.eolWarningDays, args.eolCriticalDays, args.eolIgnore, args.releaseWarningDays, args.releaseCriticalDays, args.releaseIgnore, args.lts, args.server)
+        checkDebianUbuntu(nagiosOutput, downloader, ubuntuDistroDataUrl, args.eolWarningDays, args.eolCriticalDays, args.eolIgnore, args.releaseWarningDays, args.releaseCriticalDays, args.releaseIgnore, args.lts, args.server)
     else:
         raise NotImplementedError("unknown distribution '%s'" % distro)
     nagiosOutput.reportAndExit()
