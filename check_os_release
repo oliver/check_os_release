@@ -18,8 +18,8 @@ debianDistroDataUrl = "https://salsa.debian.org/debian/distro-info-data/-/raw/ma
 ubuntuDistroDataUrl = "https://salsa.debian.org/debian/distro-info-data/-/raw/master/ubuntu.csv"
 
 
-def checkDebianUbuntu(nagiosOutput, distroDataUrl, eolWarningDays, eolCriticalDays,
-    releaseWarningDays, releaseCriticalDays, checkForLTS=False, checkForServer=False):
+def checkDebianUbuntu(nagiosOutput, distroDataUrl, eolWarningDays, eolCriticalDays, eolIgnore,
+    releaseWarningDays, releaseCriticalDays, releaseIgnore, checkForLTS=False, checkForServer=False):
     """
     Check currently installed Debian (or Ubuntu) release against online data from from distro-info-data package.
     """
@@ -56,9 +56,9 @@ def checkDebianUbuntu(nagiosOutput, distroDataUrl, eolWarningDays, eolCriticalDa
             continue
         if row["release"] is not None:
             releaseDate = parseCsvDate(row["release"])
-            if nowDate >= releaseDate + timedelta(days=releaseWarningDays):
+            if not releaseIgnore and nowDate >= releaseDate + timedelta(days=releaseWarningDays):
                 newestWarningUpgrade = row
-            if nowDate >= releaseDate + timedelta(days=releaseCriticalDays):
+            if not releaseIgnore and nowDate >= releaseDate + timedelta(days=releaseCriticalDays):
                 newestCriticalUpgrade = row
             if nowDate >= releaseDate:
                 newestAnyUpgrade = row
@@ -83,9 +83,9 @@ def checkDebianUbuntu(nagiosOutput, distroDataUrl, eolWarningDays, eolCriticalDa
             msg = "release '%s' has been EOL for %d days" % (currentCodename, (nowDate - eolDate).days)
         else:
             msg = "release '%s' will be EOL in %d days" % (currentCodename, (eolDate - nowDate).days)
-        if nowDate > eolDate - timedelta(days=eolCriticalDays):
+        if not eolIgnore and nowDate > eolDate - timedelta(days=eolCriticalDays):
             nagiosOutput.addResult(NagiosOutput.LEVEL_CRITICAL, msg)
-        elif nowDate > eolDate - timedelta(days=eolWarningDays):
+        elif not eolIgnore and nowDate > eolDate - timedelta(days=eolWarningDays):
             nagiosOutput.addResult(NagiosOutput.LEVEL_WARN, msg)
         else:
             nagiosOutput.addResult(NagiosOutput.LEVEL_OK, msg)
@@ -137,8 +137,10 @@ if __name__ == "__main__":
     parser.add_argument("-v", "--verbose", action="store_true", help="increase output verbosity")
     parser.add_argument("--eolWarningDays", type=int, metavar="DAYS", default=30, help="set WARNING status if less than DAYS until end-of-life (default: 30)")
     parser.add_argument("--eolCriticalDays", type=int, metavar="DAYS", default=7, help="set CRITICAL status if less than DAYS until end-of-life (default: 7)")
+    parser.add_argument("--eolIgnore", action="store_true", help="ignore end-of-life")
     parser.add_argument("--releaseWarningDays", type=int, metavar="DAYS", default=0, help="set WARNING status if new release available for more than DAYS (default: 0)")
     parser.add_argument("--releaseCriticalDays", type=int, metavar="DAYS", default=30, help="set CRITICAL status if new release available for more than DAYS (default: 30)")
+    parser.add_argument("--releaseIgnore", action="store_true", help="ignore any new release")
     parser.add_argument("--lts", action="store_true", help="[Ubuntu] check only for LTS releases")
     parser.add_argument("--server", action="store_true", help="[Ubuntu] check for server EOL dates")
     args = parser.parse_args()
@@ -146,9 +148,9 @@ if __name__ == "__main__":
     nagiosOutput = NagiosOutput("OSRELEASE", args.verbose)
     distro = subprocess.check_output(["lsb_release", "--id", "--short"]).rstrip("\n")
     if distro == "Debian":
-        checkDebianUbuntu(nagiosOutput, debianDistroDataUrl, args.eolWarningDays, args.eolCriticalDays, args.releaseWarningDays, args.releaseCriticalDays)
+        checkDebianUbuntu(nagiosOutput, debianDistroDataUrl, args.eolWarningDays, args.eolCriticalDays, args.eolIgnore, args.releaseWarningDays, args.releaseCriticalDays, args.releaseIgnore)
     elif distro == "Ubuntu":
-        checkDebianUbuntu(nagiosOutput, ubuntuDistroDataUrl, args.eolWarningDays, args.eolCriticalDays, args.releaseWarningDays, args.releaseCriticalDays, args.lts, args.server)
+        checkDebianUbuntu(nagiosOutput, ubuntuDistroDataUrl, args.eolWarningDays, args.eolCriticalDays, args.eolIgnore, args.releaseWarningDays, args.releaseCriticalDays, args.releaseIgnore, args.lts, args.server)
     else:
         raise NotImplementedError("unknown distribution '%s'" % distro)
     nagiosOutput.reportAndExit()
