@@ -126,6 +126,10 @@ class Downloader:
     def get (self, url):
         "Returns the content of the file at the specified url."
 
+        if url.startswith("/"): # use shortcut for local paths
+            with open(url) as fp:
+                return fp.read()
+
         (cachePath, cachedPayload) = self._tryToGetFromCache(url)
         if cachedPayload is not None:
             return cachedPayload
@@ -205,7 +209,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.localDID:
-        distroDataBase = "file://%s" % distroDataBaseDirectory
+        distroDataBase = distroDataBaseDirectory
     else:
         distroDataBase = distroDataBaseUrl
 
