@@ -15,8 +15,8 @@ from StringIO import StringIO
 import traceback
 
 
-debianDistroDataUrl = "https://debian.pages.debian.net/distro-info-data/debian.csv"
-ubuntuDistroDataUrl = "https://debian.pages.debian.net/distro-info-data/ubuntu.csv"
+distroDataBaseUrl = "https://debian.pages.debian.net/distro-info-data"
+distroDataBaseDirectory = "/usr/share/distro-info"
 
 
 def checkDebianUbuntu(nagiosOutput, downloader, distroDataUrl, eolWarningDays, eolCriticalDays, eolIgnore,
@@ -201,15 +201,21 @@ if __name__ == "__main__":
     parser.add_argument("--server", action="store_true", help="[Ubuntu] check for server EOL dates")
     parser.add_argument("--cacheDir", type=str, help="optional directory where data files should be cached (default: no caching)")
     parser.add_argument("--cacheExpiration", type=int, metavar="DAYS", default=7, help="for how many days should data files be cached (default: 7)")
+    parser.add_argument("--localDID", action="store_true", help="use local distro-info-data, from %s" % distroDataBaseDirectory)
     args = parser.parse_args()
+
+    if args.localDID:
+        distroDataBase = "file://%s" % distroDataBaseDirectory
+    else:
+        distroDataBase = distroDataBaseUrl
 
     nagiosOutput = NagiosOutput("OSRELEASE", args.verbose)
     downloader = Downloader(args.cacheDir, args.cacheExpiration)
     distro = subprocess.check_output(["lsb_release", "--id", "--short"]).rstrip("\n")
     if distro == "Debian":
-        checkDebianUbuntu(nagiosOutput, downloader, debianDistroDataUrl, args.eolWarningDays, args.eolCriticalDays, args.eolIgnore, args.releaseWarningDays, args.releaseCriticalDays, args.releaseIgnore)
+        checkDebianUbuntu(nagiosOutput, downloader, "%s/debian.csv" % distroDataBase, args.eolWarningDays, args.eolCriticalDays, args.eolIgnore, args.releaseWarningDays, args.releaseCriticalDays, args.releaseIgnore)
     elif distro == "Ubuntu":
-        checkDebianUbuntu(nagiosOutput, downloader, ubuntuDistroDataUrl, args.eolWarningDays, args.eolCriticalDays, args.eolIgnore, args.releaseWarningDays, args.releaseCriticalDays, args.releaseIgnore, args.lts, args.server)
+        checkDebianUbuntu(nagiosOutput, downloader, "%s/ubuntu.csv" % distroDataBase, args.eolWarningDays, args.eolCriticalDays, args.eolIgnore, args.releaseWarningDays, args.releaseCriticalDays, args.releaseIgnore, args.lts, args.server)
     else:
         raise NotImplementedError("unknown distribution '%s'" % distro)
     nagiosOutput.reportAndExit()

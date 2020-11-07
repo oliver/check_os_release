@@ -4,6 +4,8 @@ This is a Nagios/Icinga plugin to check if the currently installed operating sys
 
 Currently only Debian and Ubuntu are supported.
 
+Information about releases and end-of-life dates is retrieved from https://salsa.debian.org/debian/distro-info-data/ or (if `--localDID` is specified) from the /usr/share/distro-info directory, which is provided by the distro-info-data package.
+
 ## Usage ##
 ```
 usage: check_os_release [-h] [-v] [--eolWarningDays DAYS]
@@ -11,7 +13,7 @@ usage: check_os_release [-h] [-v] [--eolWarningDays DAYS]
                         [--releaseWarningDays DAYS]
                         [--releaseCriticalDays DAYS] [--releaseIgnore] [--lts]
                         [--server] [--cacheDir CACHEDIR]
-                        [--cacheExpiration DAYS]
+                        [--cacheExpiration DAYS] [--localDID]
 
 Check whether OS release is outdated.
 
@@ -39,4 +41,6 @@ optional arguments:
   --cacheExpiration DAYS
                         for how many days should data files be cached
                         (default: 7)
+  --localDID            use local distro-info-data, from /usr/share/distro-
+                        info
 ```
