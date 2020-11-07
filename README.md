@@ -7,8 +7,11 @@ Currently only Debian and Ubuntu are supported.
 ## Usage ##
 ```
 usage: check_os_release [-h] [-v] [--eolWarningDays DAYS]
-                        [--eolCriticalDays DAYS] [--releaseWarningDays DAYS]
-                        [--releaseCriticalDays DAYS] [--lts] [--server]
+                        [--eolCriticalDays DAYS] [--eolIgnore]
+                        [--releaseWarningDays DAYS]
+                        [--releaseCriticalDays DAYS] [--releaseIgnore] [--lts]
+                        [--server] [--cacheDir CACHEDIR]
+                        [--cacheExpiration DAYS]
 
 Check whether OS release is outdated.
 
@@ -31,4 +34,9 @@ optional arguments:
   --releaseIgnore       ignore any new release
   --lts                 [Ubuntu] check only for LTS releases
   --server              [Ubuntu] check for server EOL dates
+  --cacheDir CACHEDIR   optional directory where data files should be cached
+                        (default: no caching)
+  --cacheExpiration DAYS
+                        for how many days should data files be cached
+                        (default: 7)
 ```
