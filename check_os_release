@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 #
 # Nagios plugin to check if current operating system version is outdated.
@@ -9,9 +9,9 @@ import os
 import argparse
 from datetime import datetime, date, timedelta
 import subprocess
-import urllib2
+from urllib import request
 import csv
-from StringIO import StringIO
+from io import StringIO
 import traceback
 
 
@@ -24,10 +24,10 @@ def checkDebianUbuntu(nagiosOutput, downloader, distroDataUrl, eolWarningDays, e
     """
     Check currently installed Debian (or Ubuntu) release against online data from from distro-info-data package.
     """
-    currentCodename = subprocess.check_output(["lsb_release", "--codename", "--short"]).rstrip("\n")
+    currentCodename = subprocess.check_output(["lsb_release", "--codename", "--short"]).decode('utf-8').rstrip("\n")
     currentReleaseData = None
 
-    csvFp = StringIO(downloader.get(distroDataUrl))
+    csvFp = StringIO(downloader.get(distroDataUrl).decode('utf-8'))
     csvReader = csv.DictReader(csvFp)
 
     for row in csvReader:
@@ -102,7 +102,7 @@ class Downloader:
             self.cacheExpiration = timedelta(days=cacheExpirationDays)
 
     def _buildCachePath (self, url):
-        return self.cacheDir + "/cache_" + urllib2.quote(url, safe="")
+        return self.cacheDir + "/cache_" + request.quote(url, safe="")
 
     def _getCachedTimestamp (self, path):
         return datetime.fromtimestamp(os.stat(path).st_mtime)
@@ -135,14 +135,14 @@ class Downloader:
             return cachedPayload
 
         try:
-            request = urllib2.Request(url)
-            request.add_header("User-Agent", "check_os_release/1.0")
-            response = urllib2.urlopen(request)
+            rq = request.Request(url)
+            rq.add_header("User-Agent", "check_os_release/1.0")
+            response = request.urlopen(rq)
             payload = response.read()
-        except urllib2.URLError, e:
+        except request.URLError as e:
             extype, ex, tb = sys.exc_info()
             msg = traceback.format_exception_only(extype, ex)[-1].rstrip()
-            raise RuntimeError, "error downloading \"%s\": %s" % (url, msg), tb
+            raise RuntimeError("error downloading \"%s\": %s" % (url, msg)) from tb
 
         if cachePath:
             with open(cachePath, "w") as fp:
@@ -168,7 +168,7 @@ class NagiosOutput:
         """Handler for any uncaught exception."""
         if self.verbose:
             traceback.print_tb(exc_traceback)
-        print "%s UNKNOWN (%s: %s)" % (self.name, exc_type, exc_value)
+        print("%s UNKNOWN (%s: %s)" % (self.name, exc_type, exc_value))
         sys.exit(3)
 
     def addResult(self, level, msg):
@@ -188,7 +188,7 @@ class NagiosOutput:
         else:
             raise ValueError("invalid error level '%s'" % level)
         result += " - " + ("; ".join(self.messages))
-        print result
+        print(result)
         sys.exit(self.level)
 
 
@@ -215,7 +215,7 @@ if __name__ == "__main__":
 
     nagiosOutput = NagiosOutput("OSRELEASE", args.verbose)
     downloader = Downloader(args.cacheDir, args.cacheExpiration)
-    distro = subprocess.check_output(["lsb_release", "--id", "--short"]).rstrip("\n")
+    distro = subprocess.check_output(["lsb_release", "--id", "--short"]).decode('utf-8').rstrip("\n")
     if distro == "Debian":
         checkDebianUbuntu(nagiosOutput, downloader, "%s/debian.csv" % distroDataBase, args.eolWarningDays, args.eolCriticalDays, args.eolIgnore, args.releaseWarningDays, args.releaseCriticalDays, args.releaseIgnore)
     elif distro == "Ubuntu":
