@@ -167,7 +167,7 @@ class NagiosOutput:
     def handleException(self, exc_type, exc_value, exc_traceback):
         """Handler for any uncaught exception."""
         if self.verbose:
-            traceback.print_tb(exc_traceback)
+            traceback.print_exception(exc_type, exc_value, exc_traceback)
         print("%s UNKNOWN (%s: %s)" % (self.name, exc_type, exc_value))
         sys.exit(3)
 
