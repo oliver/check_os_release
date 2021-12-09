@@ -142,7 +142,7 @@ class Downloader:
         except request.URLError as e:
             extype, ex, tb = sys.exc_info()
             msg = traceback.format_exception_only(extype, ex)[-1].rstrip()
-            raise RuntimeError("error downloading \"%s\": %s" % (url, msg)) from tb
+            raise RuntimeError("error downloading \"%s\": %s" % (url, msg)) from e
 
         if cachePath:
             with open(cachePath, "wb") as fp:
