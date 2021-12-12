@@ -6,6 +6,12 @@ Currently only Debian and Ubuntu are supported.
 
 Information about releases and end-of-life dates is retrieved from https://salsa.debian.org/debian/distro-info-data/ or (if `--localDID` is specified) from the /usr/share/distro-info directory, which is provided by the distro-info-data package.
 
+## Requirements
+
+* Python 3
+* internet access (to download the latest release data); or a local up-to-date installation of distro-info-data package (specify `--localDID` parameter to use this)
+
+
 ## Usage ##
 ```
 usage: check_os_release [-h] [-v] [--eolWarningDays DAYS]
