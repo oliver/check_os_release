@@ -19,6 +19,84 @@ distroDataBaseUrl = "https://debian.pages.debian.net/distro-info-data"
 distroDataBaseDirectory = "/usr/share/distro-info"
 
 
+def checkRedHatDerived(nagiosOutput, downloader, distroDataUrl, eolWarningDays, eolCriticalDays, eolIgnore,
+    releaseWarningDays, releaseCriticalDays, releaseIgnore, checkForLTS=False, checkForServer=False):
+    """
+    Check currently installed Debian (or Ubuntu) release against online data from from distro-info-data package.
+    """
+    currentCodename = subprocess.check_output(["lsb_release", "--codename", "--short"]).decode('utf-8').rstrip("\n")
+    currentRelease = subprocess.check_output(["lsb_release", "--release", "--short"]).decode('utf-8').rstrip("\n")
+    currentMajorRelease = currentRelease.split('.')[0]
+    currentMajorOneMinorRelease = currentRelease.split('.')[0] + "." + currentRelease.split('.')[1]
+
+    currentReleaseData = None
+
+    csvFp = StringIO(downloader.get(distroDataUrl).decode('utf-8'))
+    csvReader = csv.DictReader(csvFp)
+
+    for row in csvReader:
+        #print("CHK RH DERIVED series='%s', version='%s', currentCodename='%s', currentMajorRelease='%s'" % (row["series"], row["version"], currentCodename, currentMajorRelease))
+        if row["series"] != "" and row["series"] == currentCodename:
+            currentReleaseData = row
+            break
+        # CentOS
+        elif row["series"] == "" and row["version"] == currentMajorRelease:
+            currentReleaseData = row
+            break
+        # Fedora/RHEL
+        elif row["series"] == "" and row["version"] == currentMajorOneMinorRelease:
+            currentReleaseData = row
+            break
+    else:
+        raise RuntimeError("current release %s ('%s') not found in release list" % (currentMajorRelease, currentCodename))
+
+    def parseCsvDate(string):
+        return datetime.strptime(string, "%Y-%m-%d").date()
+    nowDate = date.today()
+
+    # check if there is a newer release available (by continuing to read from CSV buffer):
+    newestWarningUpgrade = None
+    newestCriticalUpgrade = None
+    newestAnyUpgrade = None
+    for row in csvReader:
+        if checkForLTS and not(row["version"].endswith(" LTS")):
+            continue
+        if row["release"] is not None:
+            releaseDate = parseCsvDate(row["release"])
+            if not releaseIgnore and nowDate >= releaseDate + timedelta(days=releaseWarningDays):
+                newestWarningUpgrade = row
+            if not releaseIgnore and nowDate >= releaseDate + timedelta(days=releaseCriticalDays):
+                newestCriticalUpgrade = row
+            if nowDate >= releaseDate:
+                newestAnyUpgrade = row
+    if newestCriticalUpgrade is not None:
+        nagiosOutput.addResult(NagiosOutput.LEVEL_CRITICAL, "newer release '%s' (%s) is available" % (newestCriticalUpgrade["series"], newestCriticalUpgrade["version"]))
+    elif newestWarningUpgrade is not None:
+        nagiosOutput.addResult(NagiosOutput.LEVEL_WARN,     "newer release '%s' (%s) is available" % (newestWarningUpgrade["series"], newestWarningUpgrade["version"]))
+    elif newestAnyUpgrade is not None:
+        nagiosOutput.addResult(NagiosOutput.LEVEL_OK,       "newer release '%s' (%s) is available" % (newestAnyUpgrade["series"], newestAnyUpgrade["version"]))
+    else:
+        nagiosOutput.addResult(NagiosOutput.LEVEL_OK,       "release '%s' (%s) is most current" % (currentReleaseData["series"], currentReleaseData["version"]))
+
+    # check if current release is EOL
+    if checkForServer and currentReleaseData.has_key("eol-server") and currentReleaseData["eol-server"] is not None:
+        eolDate = parseCsvDate(currentReleaseData["eol-server"])
+    elif currentReleaseData["eol"] is not None:
+        eolDate = parseCsvDate(currentReleaseData["eol"])
+    else:
+        eolDate = None
+    if eolDate:
+        if nowDate > eolDate:
+            msg = "release '%s' has been EOL for %d days" % (currentCodename, (nowDate - eolDate).days)
+        else:
+            msg = "release '%s' will be EOL in %d days" % (currentCodename, (eolDate - nowDate).days)
+        if not eolIgnore and nowDate > eolDate - timedelta(days=eolCriticalDays):
+            nagiosOutput.addResult(NagiosOutput.LEVEL_CRITICAL, msg)
+        elif not eolIgnore and nowDate > eolDate - timedelta(days=eolWarningDays):
+            nagiosOutput.addResult(NagiosOutput.LEVEL_WARN, msg)
+        else:
+            nagiosOutput.addResult(NagiosOutput.LEVEL_OK, msg)
+
 def checkDebianUbuntu(nagiosOutput, downloader, distroDataUrl, eolWarningDays, eolCriticalDays, eolIgnore,
     releaseWarningDays, releaseCriticalDays, releaseIgnore, checkForLTS=False, checkForServer=False):
     """
@@ -220,6 +298,11 @@ if __name__ == "__main__":
         checkDebianUbuntu(nagiosOutput, downloader, "%s/debian.csv" % distroDataBase, args.eolWarningDays, args.eolCriticalDays, args.eolIgnore, args.releaseWarningDays, args.releaseCriticalDays, args.releaseIgnore)
     elif distro == "Ubuntu":
         checkDebianUbuntu(nagiosOutput, downloader, "%s/ubuntu.csv" % distroDataBase, args.eolWarningDays, args.eolCriticalDays, args.eolIgnore, args.releaseWarningDays, args.releaseCriticalDays, args.releaseIgnore, args.lts, args.server)
+    elif distro == "CentOS":
+        checkRedHatDerived(nagiosOutput, downloader, "%s/centos.csv" % distroDataBase, args.eolWarningDays, args.eolCriticalDays, args.eolIgnore, args.releaseWarningDays, args.releaseCriticalDays, args.releaseIgnore, args.lts, args.server)
+    elif distro == "Fedora":
+        checkRedHatDerived(nagiosOutput, downloader, "%s/fedora.csv" % distroDataBase, args.eolWarningDays, args.eolCriticalDays, args.eolIgnore, args.releaseWarningDays, args.releaseCriticalDays, args.releaseIgnore, args.lts, args.server)
+        # RHEL?
     else:
         raise NotImplementedError("unknown distribution '%s'" % distro)
     nagiosOutput.reportAndExit()
