@@ -66,7 +66,7 @@ def checkDebianUbuntu(nagiosOutput, downloader, distroDataUrl, eolWarningDays, e
         nagiosOutput.addResult(NagiosOutput.LEVEL_OK,       "release '%s' (%s) is most current" % (currentReleaseData["series"], currentReleaseData["version"]))
 
     # check if current release is EOL
-    if checkForServer and currentReleaseData.has_key("eol-server") and currentReleaseData["eol-server"] is not None:
+    if checkForServer and ('eol-server' in currentReleaseData) and currentReleaseData["eol-server"] is not None:
         eolDate = parseCsvDate(currentReleaseData["eol-server"])
     elif currentReleaseData["eol"] is not None:
         eolDate = parseCsvDate(currentReleaseData["eol"])
