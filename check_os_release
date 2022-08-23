@@ -46,7 +46,7 @@ def checkDebianUbuntu(nagiosOutput, downloader, distroDataUrl, eolWarningDays, e
     newestCriticalUpgrade = None
     newestAnyUpgrade = None
     for row in csvReader:
-        if checkForLTS and not(row["version"].endswith(" LTS")):
+        if (distro == "Ubuntu") and checkForLTS and not(row["version"].endswith(" LTS")):
             continue
         if row["release"] is not None:
             releaseDate = parseCsvDate(row["release"])
