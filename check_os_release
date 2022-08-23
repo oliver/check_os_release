@@ -20,7 +20,7 @@ distroDataBaseDirectory = "/usr/share/distro-info"
 
 
 def checkDebianUbuntu(nagiosOutput, downloader, distroDataUrl, eolWarningDays, eolCriticalDays, eolIgnore,
-    releaseWarningDays, releaseCriticalDays, releaseIgnore, checkForLTS=False, checkForServer=False):
+    releaseWarningDays, releaseCriticalDays, releaseIgnore, checkForUbuntuLTSRelease=False, checkForServer=False, checkForDebianLTSEOL=False):
     """
     Check currently installed Debian (or Ubuntu) release against online data from from distro-info-data package.
     """
@@ -46,7 +46,7 @@ def checkDebianUbuntu(nagiosOutput, downloader, distroDataUrl, eolWarningDays, e
     newestCriticalUpgrade = None
     newestAnyUpgrade = None
     for row in csvReader:
-        if (distro == "Ubuntu") and checkForLTS and not(row["version"].endswith(" LTS")):
+        if checkForUbuntuLTSRelease and not(row["version"].endswith(" LTS")):
             continue
         if row["release"] is not None:
             releaseDate = parseCsvDate(row["release"])
@@ -68,7 +68,7 @@ def checkDebianUbuntu(nagiosOutput, downloader, distroDataUrl, eolWarningDays, e
     # check if current release is EOL
     if checkForServer and ('eol-server' in currentReleaseData) and currentReleaseData["eol-server"] is not None:
         eolDate = parseCsvDate(currentReleaseData["eol-server"])
-    elif (distro == "Debian") and checkForLTS and ('eol-lts' in currentReleaseData) and currentReleaseData["eol-lts"] is not None:
+    elif checkForDebianLTSEOL and ('eol-lts' in currentReleaseData) and currentReleaseData["eol-lts"] is not None:
         eolDate = parseCsvDate(currentReleaseData["eol-lts"])
     elif currentReleaseData["eol"] is not None:
         eolDate = parseCsvDate(currentReleaseData["eol"])
@@ -219,9 +219,9 @@ if __name__ == "__main__":
     downloader = Downloader(args.cacheDir, args.cacheExpiration)
     distro = subprocess.check_output(["lsb_release", "--id", "--short"]).decode('utf-8').rstrip("\n")
     if distro == "Debian":
-        checkDebianUbuntu(nagiosOutput, downloader, "%s/debian.csv" % distroDataBase, args.eolWarningDays, args.eolCriticalDays, args.eolIgnore, args.releaseWarningDays, args.releaseCriticalDays, args.releaseIgnore, args.lts)
+        checkDebianUbuntu(nagiosOutput, downloader, "%s/debian.csv" % distroDataBase, args.eolWarningDays, args.eolCriticalDays, args.eolIgnore, args.releaseWarningDays, args.releaseCriticalDays, args.releaseIgnore, checkForDebianLTSEOL=args.lts)
     elif distro == "Ubuntu":
-        checkDebianUbuntu(nagiosOutput, downloader, "%s/ubuntu.csv" % distroDataBase, args.eolWarningDays, args.eolCriticalDays, args.eolIgnore, args.releaseWarningDays, args.releaseCriticalDays, args.releaseIgnore, args.lts, args.server)
+        checkDebianUbuntu(nagiosOutput, downloader, "%s/ubuntu.csv" % distroDataBase, args.eolWarningDays, args.eolCriticalDays, args.eolIgnore, args.releaseWarningDays, args.releaseCriticalDays, args.releaseIgnore, checkForUbuntuLTSRelease=args.lts, checkForServer=args.server)
     else:
         raise NotImplementedError("unknown distribution '%s'" % distro)
     nagiosOutput.reportAndExit()
