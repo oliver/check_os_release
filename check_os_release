@@ -203,7 +203,7 @@ if __name__ == "__main__":
     parser.add_argument("--releaseWarningDays", type=int, metavar="DAYS", default=0, help="set WARNING status if new release available for more than DAYS (default: 0)")
     parser.add_argument("--releaseCriticalDays", type=int, metavar="DAYS", default=30, help="set CRITICAL status if new release available for more than DAYS (default: 30)")
     parser.add_argument("--releaseIgnore", action="store_true", help="ignore any new release")
-    parser.add_argument("--lts", action="store_true", help="[Ubuntu] check only for LTS releases, [Debian] ignore newer release if current has LTS")
+    parser.add_argument("--lts", action="store_true", help="[Ubuntu] look only for LTS releases, [Debian] check for LTS EOL dates")
     parser.add_argument("--server", action="store_true", help="[Ubuntu] check for server EOL dates")
     parser.add_argument("--cacheDir", type=str, help="optional directory where data files should be cached (default: no caching)")
     parser.add_argument("--cacheExpiration", type=int, metavar="DAYS", default=7, help="for how many days should data files be cached (default: 7)")
