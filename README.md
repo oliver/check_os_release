@@ -1,6 +1,8 @@
 # check_os_release #
 
-This is a Nagios/Icinga plugin to check if the currently installed operating system version is outdated. It checks whether the installed version is about to reach end-of-life or whether a newer release is available.
+This is a Nagios/Icinga plugin to check if the currently installed operating system version is outdated. It checks:
+- whether the installed version is about to reach end-of-life (see `--eolWarningDays`, `--eolCriticalDays`, `--eolIgnore` parameters),
+- or whether a newer release is available (see `--releaseWarningDays`, `--releaseCriticalDays`, `--releaseIgnore` parameters).
 
 Currently only Debian and Ubuntu are supported.
 
